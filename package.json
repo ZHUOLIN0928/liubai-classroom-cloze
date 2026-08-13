@@ -1,0 +1,13 @@
+{
+  "name": "classroom-cloze-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check cloze-engine.js && node --check strategy-engine.js && node --check export-engine.js && node --check docx-engine.js && node --check app.js && node --check scripts/export-lnk-library.mjs && node --check scripts/verify-content-library.mjs",
+    "export:lnk-library": "node scripts/export-lnk-library.mjs",
+    "verify:library": "node scripts/verify-content-library.mjs",
+    "build:public-release": "node scripts/build-public-release.mjs"
+  }
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 48 48" role="img" aria-labelledby="title desc">
+  <title id="title">留白</title>
+  <desc id="desc">由留字的横竖笔画和中间留白组成的极简标志</desc>
+  <rect width="48" height="48" rx="14" fill="#2f617a"/>
+  <path d="M12 13h24M18 13v22M30 13v22M12 35h24" fill="none" stroke="#f6fbfc" stroke-width="3.6" stroke-linecap="round"/>
+  <path d="M23.5 20.5h1v7h-1z" fill="#2f617a"/>
+</svg>
