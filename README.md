@@ -4,7 +4,7 @@
 
 - 官网：`https://zhuolin0928.github.io/liubai-classroom-cloze/`
 - 在线工作台：`https://zhuolin0928.github.io/liubai-classroom-cloze/workbench/`
-- 免安装离线版：见 `v0.1.1` GitHub Release。
+- 免安装离线版：见 `v0.1.2` GitHub Release。
 
 公开源码只包含可编辑示例内容。完整课堂内容库由独立的非公开发布流程注入线上站点和离线包，不进入公开源码仓库或公开 Git 历史；已发布的站点和离线包为教学使用提供内容，但内容本身不以开源许可证授权再分发。
 
