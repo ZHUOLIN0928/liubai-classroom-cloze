@@ -53,7 +53,7 @@ function wrapParagraph(tokens, contentLeft, contentRight, fontSize) {
             lines.push([]);
             lineWidth = 0;
         }
-        lines.at(-1).push({ token, character, width });
+        lines.at(-1).push({ sourceToken: token, character, width });
         lineWidth += width;
     }
     return lines;
@@ -72,19 +72,21 @@ export function paginateTokens(tokens, options = {}) {
     const headerHeight = Math.max(fontSize * 2.5, Math.round(options.headerHeight ?? margin * .95));
     const footerHeight = Math.max(fontSize * 1.7, Math.round(options.footerHeight ?? margin * .7));
     const paragraphMode = options.paragraphMode === 'page' ? 'page' : 'newline';
+    const titleMode = options.titleMode === 'first' ? 'first' : 'every';
     const paragraphSpacing = Math.max(0, Math.round(options.paragraphSpacing ?? lineHeight * .55));
     const contentLeft = margin;
     const contentRight = spec.width - margin;
-    const firstBaseline = margin + headerHeight + fontSize * 2.75;
     const contentBottom = spec.height - margin - footerHeight;
-    const pages = [createPage(spec, margin, headerHeight, footerHeight)];
+    const headerForPage = (pageIndex) => titleMode === 'first' && pageIndex > 0 ? 0 : headerHeight;
+    const baselineForPage = (candidate) => candidate.margins + candidate.headerHeight + fontSize * (candidate.headerHeight ? 2.75 : 1.15);
+    const pages = [createPage(spec, margin, headerForPage(0), footerHeight)];
     let page = pages[0];
-    let y = firstBaseline;
+    let y = baselineForPage(page);
 
     const startPage = () => {
-        page = createPage(spec, margin, headerHeight, footerHeight);
+        page = createPage(spec, margin, headerForPage(pages.length), footerHeight);
         pages.push(page);
-        y = firstBaseline;
+        y = baselineForPage(page);
     };
     const lineFits = (baseline) => baseline + fontSize * .35 <= contentBottom;
     const paragraphFits = (lineCount) => lineFits(y + Math.max(0, lineCount - 1) * lineHeight);
@@ -92,7 +94,8 @@ export function paginateTokens(tokens, options = {}) {
 
     paragraphsFromTokens(tokens).forEach((paragraph, paragraphIndex) => {
         const lines = wrapParagraph(paragraph.tokens, contentLeft, contentRight, fontSize);
-        const fitsFreshPage = lineFits(firstBaseline + Math.max(0, lines.length - 1) * lineHeight);
+        const nextPage = createPage(spec, margin, headerForPage(pages.length), footerHeight);
+        const fitsFreshPage = lineFits(baselineForPage(nextPage) + Math.max(0, lines.length - 1) * lineHeight);
 
         if (paragraphMode === 'page' && paragraphIndex > 0 && !pageIsEmpty()) startPage();
         else if (paragraphMode === 'newline' && !pageIsEmpty() && fitsFreshPage && !paragraphFits(lines.length)) startPage();
@@ -111,13 +114,13 @@ export function paginateTokens(tokens, options = {}) {
         }
 
         if (paragraph.separator) {
-            page.items.push({ token: paragraph.separator, character: '\n', x: contentLeft, y, newline: true, paragraphIndex });
+            page.items.push({ sourceToken: paragraph.separator, character: '\n', x: contentLeft, y, newline: true, paragraphIndex });
             y += lineHeight + paragraphSpacing;
         }
     });
 
     return {
-        spec, fontSize, lineHeight, margin, headerHeight, footerHeight, paragraphMode, paragraphSpacing,
+        spec, fontSize, lineHeight, margin, headerHeight, footerHeight, paragraphMode, paragraphSpacing, titleMode,
         pages: pages.filter((candidate, index) => candidate.items.length || index === 0)
     };
 }
@@ -135,11 +138,9 @@ export function drawPage(canvas, page, options = {}) {
     const blankStyle = options.blankStyle ?? 'underline';
     context.fillStyle = theme.background;
     context.fillRect(0, 0, page.width, page.height);
-    if (options.meta) { context.textAlign = 'right'; context.fillStyle = theme.muted; context.font = `500 ${Math.round(page.headerHeight * .29)}px ui-sans-serif, system-ui, sans-serif`; context.fillText(options.meta, page.width - page.margins, page.margins + page.headerHeight * .42); context.textAlign = 'left'; }
-    context.textAlign = 'center';
-    context.fillStyle = theme.ink;
-    context.font = `700 ${Math.round(page.fontSize ?? options.fontSize ?? 54) * 1.36}px ${fontFamily}`;
-    context.fillText(options.title ?? '课堂默写', page.width / 2, page.margins + page.headerHeight + Math.round((page.fontSize ?? options.fontSize ?? 54) * .12));
+    const showTitle = options.titleMode !== 'first' || pageNumber === 1;
+    if (showTitle && options.meta) { context.textAlign = 'right'; context.fillStyle = theme.muted; context.font = `500 ${Math.round(page.headerHeight * .29)}px ui-sans-serif, system-ui, sans-serif`; context.fillText(options.meta, page.width - page.margins, page.margins + page.headerHeight * .42); context.textAlign = 'left'; }
+    if (showTitle) { context.textAlign = 'center'; context.fillStyle = theme.ink; context.font = `700 ${Math.round(page.fontSize ?? options.fontSize ?? 54) * 1.36}px ${fontFamily}`; context.fillText(options.title ?? '课堂默写', page.width / 2, page.margins + page.headerHeight + Math.round((page.fontSize ?? options.fontSize ?? 54) * .12)); }
     context.textAlign = 'left';
     context.font = `400 ${options.fontSize ?? 54}px ${fontFamily}`;
     context.fillStyle = theme.ink;
@@ -147,7 +148,7 @@ export function drawPage(canvas, page, options = {}) {
     context.lineWidth = Math.max(1.5, (options.fontSize ?? 54) * .035);
     for (const item of page.items) {
         if (item.newline) continue;
-        if (item.token?.blank) {
+        if (item.sourceToken?.blank) {
             const width = Math.max(item.width * .88, (options.fontSize ?? 54) * .72);
             if (blankStyle === 'box') context.strokeRect(item.x + 1, item.y - (options.fontSize ?? 54) * .82, width, (options.fontSize ?? 54) * .94);
             else if (blankStyle === 'underline') {

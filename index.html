@@ -5,26 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>留白 · 课堂挖空</title>
-  <link rel="stylesheet" href="./styles.css?v=20260813-library-spacing">
+  <link rel="preload" href="./assets/fonts/LXGWWenKai-Regular.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="./styles.css?v=20260814-workspace-refresh">
 </head>
 <body>
-  <header class="topbar" aria-label="课堂默写工具栏">
+  <header class="topbar" aria-label="课堂挖空工具栏">
     <a class="brand" href="#studio" aria-label="留白课堂挖空工具首页"><span class="brand-mark" aria-hidden="true"><img src="./assets/liubai-mark.png" alt=""></span><span>留白</span><span class="brand-subtitle">课堂挖空</span></a>
     <p class="status" id="libraryStatus" aria-live="polite">正在载入内容库…</p>
-    <nav class="task-nav" aria-label="工作台步骤" id="taskNav"><button class="task-tab active" data-view="library" type="button">内容库</button><button class="task-tab" data-view="edit" type="button">挖空编辑</button><button class="task-tab" data-view="layout" type="button">版式设置</button><button class="task-tab" data-view="export" type="button">导出预览</button></nav>
-    <div class="top-actions"><button class="icon-button audio-control" id="soundToggle" type="button" aria-pressed="false" aria-label="关闭交互音效" title="交互音效"></button><button class="icon-button" id="themeToggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">◐</button><button class="button primary" id="exportButton" type="button">导出</button></div>
+    <nav class="task-nav" aria-label="工作台步骤" id="taskNav"><button class="task-tab active" data-view="library" type="button"><b>1</b>选课文</button><button class="task-tab" data-view="edit" type="button"><b>2</b>设留白</button><button class="task-tab" data-view="layout" type="button"><b>3</b>调版式</button><button class="task-tab" data-view="export" type="button"><b>4</b>检查导出</button></nav>
+    <div class="top-actions"><button class="icon-button audio-control" id="soundToggle" type="button" aria-pressed="false" aria-label="关闭交互音效" title="交互音效"></button><button class="icon-button" id="themeToggle" type="button" aria-label="切换深浅色主题" title="切换深浅色主题">◐</button><button class="button primary" id="exportButton" type="button">导出文件</button></div>
   </header>
 
   <main id="studio" class="studio-shell">
-    <aside class="library-panel task-view" data-view="library" aria-label="内容库">
-      <div class="panel-heading"><div><p class="eyebrow">内容库</p><h1>课文</h1></div><button class="icon-button" id="openEdit" type="button" aria-label="编辑当前课文" title="编辑当前课文">✎</button></div>
-      <label class="search"><span>⌕</span><input id="searchWorks" type="search" placeholder="搜索篇名、作者或学段"></label>
+    <section class="library-panel task-view" data-view="library" aria-label="内容库">
+      <div class="panel-heading"><div><p class="eyebrow">第一步</p><h1>选一篇课文</h1></div><button class="icon-button" id="contentWorkbench" type="button" aria-label="打开内容工作台" title="内容工作台">＋</button></div>
+      <label class="search"><span aria-hidden="true">⌕</span><input id="searchWorks" type="search" placeholder="搜索篇名、作者或学段"></label>
       <div class="library-filters" aria-label="筛选内容库"><label>学段<select id="stageFilter"><option value="all">全部学段</option><option value="初中">初中</option><option value="高中">高中</option><option value="自建">自建</option></select></label><label>朝代<select id="dynastyFilter"><option value="all">全部朝代</option></select></label></div>
+      <p class="library-result" id="libraryResult">正在整理课文…</p>
       <div class="library-list" id="libraryList" aria-live="polite"></div>
-      <div class="library-actions"><button class="button primary" id="contentWorkbench" type="button">内容工作台</button><input id="libraryFile" type="file" accept="application/json" hidden></div>
-    </aside>
+      <input id="libraryFile" type="file" accept="application/json" hidden>
+    </section>
 
-    <section class="workbench task-view" data-view="edit layout export" aria-label="挖空编辑区">
+    <section class="selection-panel task-view" data-view="library" aria-label="当前选定课文">
+      <div class="selection-kicker"><span>当前课文</span><span id="selectionBlankable">0 字可挖空</span></div>
+      <div>
+        <p class="eyebrow" id="selectionMeta">本机内容库</p>
+        <h2 id="selectionTitle">载入中</h2>
+        <p class="selection-author" id="selectionAuthor">—</p>
+      </div>
+      <p class="selection-excerpt" id="selectionExcerpt">正在载入课文内容。</p>
+      <div class="selection-actions"><button class="button primary" id="startEditing" type="button">开始挖空</button><button class="button quiet" id="openEdit" type="button">编辑课文</button></div>
+      <p class="selection-hint">文本与设置只保存在这台设备。选择课文后，可直接设定留白规则并调整版式。</p>
+    </section>
+
+    <section class="workbench task-view" data-view="edit layout export" aria-label="课堂资料工作面">
       <section class="work-title task-view" data-view="edit layout export"><div><p class="eyebrow" id="workMeta">本机内容库</p><h2 id="workTitle">载入中</h2><p id="workAuthor">—</p></div><div class="blank-meter"><span>已挖空</span><strong id="workBlankCount">0</strong><span>字</span></div></section>
 
       <section class="ink-card config-card task-view" data-view="edit" aria-label="提取规则与配置中心">
@@ -46,8 +60,9 @@
           <fieldset><legend>画布版式</legend><div class="chip-row" id="ratioControl"><button class="chip selected" data-ratio="16:9" type="button">宽版</button><button class="chip" data-ratio="4:3" type="button">标准</button><button class="chip" data-ratio="a4-landscape" type="button">A4 横</button><button class="chip" data-ratio="a4-portrait" type="button">A4 纵</button></div><label class="inline-input">自定义 <input id="customRatio" inputmode="decimal" placeholder="如 3:2"></label></fieldset>
           <fieldset><legend>空格样式</legend><div class="chip-row" id="blankStyleControl"><button class="chip selected" data-style="underline" type="button">下划线</button><button class="chip" data-style="box" type="button">方框</button><button class="chip" data-style="space" type="button">留白</button></div></fieldset>
           <fieldset><legend>段落分页</legend><div class="segment-control paragraph-mode-control" id="paragraphModeControl"><button class="chip selected" data-paragraph-mode="newline" type="button">换行分段</button><button class="chip" data-paragraph-mode="page" type="button">一段一页</button></div><small class="font-status" id="paragraphModeStatus">段落间留出空白；能放下时不会拆开。</small></fieldset>
-          <fieldset><legend>导出字体</legend><label class="font-picker"><select id="fontFamily"><option value="serif">教材宋体</option><option value="wenkai">文楷（设备字体）</option><option value="system-serif">系统宋体</option><option value="system-sans">系统黑体</option><option value="custom">临时导入字体</option></select><button class="button quiet" id="importFont" type="button">导入字体</button><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/otf,font/woff,font/woff2" hidden></label><small class="font-status" id="fontStatus">使用设备字体；也可临时导入自己的字体文件。</small></fieldset>
-          <fieldset><legend>背景色</legend><label class="color-picker"><input id="exportBackground" type="color" value="#f4f0e6"><span>用于 PNG 与 Word 文档</span></label></fieldset>
+          <fieldset><legend>标题显示</legend><div class="segment-control" id="titleModeControl"><button class="chip" data-title-mode="first" type="button">只在首页</button><button class="chip selected" data-title-mode="every" type="button">每页都显示</button></div><small class="font-status" id="titleModeStatus">每页显示篇名与作者信息。</small></fieldset>
+          <fieldset><legend>导出字体</legend><label class="font-picker"><select id="fontFamily"><option value="serif">教材宋体</option><option value="wenkai">霞鹜文楷</option><option value="system-serif">系统宋体</option><option value="system-sans">系统黑体</option><option value="custom">临时导入字体</option></select><button class="button quiet" id="importFont" type="button">导入字体</button><input id="fontFile" type="file" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden></label><small class="font-status" id="fontStatus">内置：霞鹜文楷（SIL OFL 1.1）与系统字体。</small></fieldset>
+          <fieldset><legend>背景色</legend><label class="color-picker"><input id="exportBackground" type="color" value="#f4f0e6"><span>用于 PNG 导出</span></label></fieldset>
           <fieldset><legend>导出字号 <output id="fontSizeOutput">54 px</output></legend><input id="fontSize" type="range" min="28" max="96" step="2" value="54"></fieldset>
           <fieldset><legend>行距 <output id="lineHeightOutput">1.82</output></legend><input id="lineHeight" type="range" min="1.35" max="2.2" step=".05" value="1.82"></fieldset>
           <fieldset><legend>页边距 <output id="marginOutput">7.5%</output></legend><input id="marginRatio" type="range" min="4" max="14" step=".5" value="7.5"></fieldset>
@@ -55,20 +70,27 @@
       </section>
     </section>
 
-    <aside class="preview-panel task-view" data-view="export" aria-label="导出图片预览">
-      <div class="panel-heading"><div><p class="eyebrow">输出检查</p><h2>页面校验</h2></div><span class="page-badge" id="pageBadge">1 张</span></div>
-      <p class="preview-note">核对文字、留白和分页。点击页面可放大。</p>
+    <aside class="preview-panel task-view" data-view="layout export" aria-label="导出图片预览">
+      <div class="panel-heading"><div><p class="eyebrow">输出检查</p><h2>页面预览</h2></div><span class="page-badge" id="pageBadge">1 张</span></div>
+      <p class="preview-note">版式修改会立即反映在这里。点击页面可放大检查。</p>
       <div class="page-preview-list" id="pagePreviewList"></div>
     </aside>
   </main>
 
-  <nav class="bottom-nav" aria-label="工作台步骤" id="bottomNav"><button class="task-tab active" data-view="library" type="button">内容库</button><button class="task-tab" data-view="edit" type="button">挖空编辑</button><button class="task-tab" data-view="layout" type="button">版式设置</button><button class="task-tab" data-view="export" type="button">导出预览</button></nav>
+  <nav class="bottom-nav" aria-label="工作台步骤" id="bottomNav"><button class="task-tab active" data-view="library" type="button">课文</button><button class="task-tab" data-view="edit" type="button">留白</button><button class="task-tab" data-view="layout" type="button">版式</button><button class="task-tab" data-view="export" type="button">导出</button></nav>
 
   <dialog id="exportDialog" class="export-dialog" aria-labelledby="exportDialogTitle">
     <form method="dialog"><button class="dialog-close" type="submit" value="cancel" aria-label="关闭导出对话框">×</button></form>
     <p class="eyebrow">输出</p><h2 id="exportDialogTitle">生成课堂资料</h2><p id="exportSummary">—</p>
-    <div class="dialog-actions"><button class="button quiet" id="downloadCurrent" type="button">当前 PNG</button><button class="button quiet" id="downloadWord" type="button">Word 文档</button><button class="button primary" id="downloadAll" type="button">全部 PNG</button></div>
-    <p class="dialog-hint">多页会生成多张独立 PNG；Word 文档会保留可继续编辑的文字与挖空。</p>
+    <div class="dialog-actions"><button class="button quiet" id="openCopy" type="button">直接复制</button><button class="button quiet" id="downloadCurrent" type="button">当前 PNG</button><button class="button primary" id="downloadAll" type="button">全部 PNG</button></div>
+    <p class="dialog-hint">直接复制默认使用下划线留白；多页 PNG 会分别下载。</p>
+  </dialog>
+
+  <dialog id="copyDialog" class="export-dialog edit-dialog" aria-labelledby="copyDialogTitle">
+    <div class="dialog-title"><div><p class="eyebrow">直接复制</p><h2 id="copyDialogTitle">挖空文本</h2></div><button class="dialog-close" id="closeCopy" type="button" aria-label="关闭直接复制">×</button></div>
+    <p class="dialog-hint">复制内容默认使用下划线留白，可直接粘贴到教案或文档中。</p>
+    <label>复制预览<textarea id="copyTextPreview" rows="13" readonly></textarea></label>
+    <div class="dialog-actions"><button class="button primary" id="copyText" type="button">一键复制</button></div>
   </dialog>
 
   <dialog id="previewDialog" class="preview-dialog" aria-labelledby="previewDialogTitle">
@@ -91,7 +113,6 @@
     </form>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="./vendor/docx-9.5.1.iife.js"></script>
   <script type="module" src="./app.js?v=20260813-paragraph-layout"></script>
 </body>
 </html>

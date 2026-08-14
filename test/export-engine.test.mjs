@@ -48,6 +48,14 @@ test('lets an overlong single paragraph continue without mixing another paragrap
     assert.deepEqual(paragraphPages.at(-1), [1]);
 });
 
+test('only reserves the title header on the first page when configured', () => {
+    const layout = paginateTokens(source('甲乙丙丁。'.repeat(260)), { spec:{width:520,height:380},fontSize:38,lineHeight:1.6,margin:36,titleMode:'first' });
+    assert.ok(layout.pages.length > 1);
+    assert.ok(layout.pages[0].headerHeight > 0);
+    assert.ok(layout.pages.slice(1).every((page) => page.headerHeight === 0));
+    assert.ok(layout.pages[1].items.find((item) => !item.newline).y < layout.pages[0].items.find((item) => !item.newline).y);
+});
+
 test('draws a clean worksheet without product or ratio watermark text', () => {
     const calls=[];
     const context={scale(){},fillRect(){},fillText(text){calls.push(String(text));},beginPath(){},moveTo(){},lineTo(){},stroke(){},strokeRect(){},set fillStyle(value){},set strokeStyle(value){},set lineWidth(value){},set textAlign(value){},set font(value){calls.push(value);}};
@@ -56,4 +64,14 @@ test('draws a clean worksheet without product or ratio watermark text', () => {
     drawPage(canvas,layout.pages[0],{title:'默写练习',meta:'诸葛亮 · 蜀汉',fontFamily:'"TeacherFont", serif',fontSize:38,pageCount:1,formatLabel:'16:9'});
     assert.equal(calls.some((value) => /LNK LUMEN|16:9|屏幕|投影/u.test(value)),false);
     assert.equal(calls.some((value) => value.includes('TeacherFont')),true);
+});
+
+test('does not draw the title or author on later first-page-only output', () => {
+    const calls=[];
+    const context={scale(){},fillRect(){},fillText(text){calls.push(String(text));},beginPath(){},moveTo(){},lineTo(){},stroke(){},strokeRect(){},set fillStyle(value){},set strokeStyle(value){},set lineWidth(value){},set textAlign(value){},set font(value){}};
+    const canvas={getContext:() => context};
+    const layout=paginateTokens(source('甲乙丙'), { spec:{width:600,height:420},fontSize:38,lineHeight:1.7,margin:36,titleMode:'first' });
+    drawPage(canvas,layout.pages[0],{title:'默写练习',meta:'诸葛亮 · 蜀汉',fontSize:38,pageNumber:2,pageCount:2,titleMode:'first'});
+    assert.equal(calls.includes('默写练习'),false);
+    assert.equal(calls.includes('诸葛亮 · 蜀汉'),false);
 });
