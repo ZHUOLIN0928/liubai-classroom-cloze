@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>留白 · 课堂默写工作台</title>
+<meta name="description" content="留白：从古诗文或自定义课文制作挖空默写材料的教师端工作台。本地优先，无账号，无水印。">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --paper:#f2ede1;
+  --paper-2:#eae3d3;
+  --ink:#1c2733;
+  --ink-soft:#3c4a56;
+  --muted:#6c7680;
+  --faint:#a39c8d;
+  --line:rgba(28,39,51,.14);
+  --accent:#4c6478;
+  --accent-2:#8a6f52;
+  --accent-ink:#f7f4ec;
+  --shadow:0 1.5rem 4rem rgba(28,25,15,.14);
+  --ease:cubic-bezier(.16,1,.3,1);
+  --ease-soft:cubic-bezier(.22,1,.36,1);
+  color-scheme: light dark;
+}
+:root[data-theme="dark"]{
+  --paper:#14181a;
+  --paper-2:#1b2124;
+  --ink:#ece7d9;
+  --ink-soft:#c9c2ae;
+  --muted:#8b8f8a;
+  --faint:#565b57;
+  --line:rgba(236,231,217,.14);
+  --accent:#8fa6b3;
+  --accent-2:#c9a877;
+  --accent-ink:#12181b;
+  --shadow:0 1.5rem 4rem rgba(0,0,0,.45);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#14181a; --paper-2:#1b2124; --ink:#ece7d9; --ink-soft:#c9c2ae;
+    --muted:#8b8f8a; --faint:#565b57; --line:rgba(236,231,217,.14);
+    --accent:#8fa6b3; --accent-2:#c9a877; --accent-ink:#12181b;
+    --shadow:0 1.5rem 4rem rgba(0,0,0,.45);
+  }
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"PingFang SC","Noto Serif SC","Songti SC",ui-serif,serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+  cursor:none;
+}
+@media (hover:none), (pointer:coarse){ body{ cursor:auto; } }
+::selection{ background:var(--accent); color:var(--accent-ink); }
+
+a{color:inherit;}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
+
+/* ---------- grain + glow backdrop ---------- */
+.backdrop{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(60vmax 60vmax at var(--gx,50%) var(--gy,20%), color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%),
+    var(--paper);
+  transition:background-color .6s var(--ease);
+}
+.backdrop::after{
+  content:"";
+  position:absolute; inset:0;
+  opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* ---------- custom cursor ---------- */
+.cursor{
+  position:fixed; top:0; left:0; z-index:9999; pointer-events:none;
+  width:8px; height:8px; margin:-4px 0 0 -4px;
+  background:var(--ink); border-radius:50%;
+  transform:translate3d(-100px,-100px,0);
+  transition:background-color .3s var(--ease);
+}
+.cursor-ring{
+  position:fixed; top:0; left:0; z-index:9998; pointer-events:none;
+  width:34px; height:34px; margin:-17px 0 0 -17px;
+  border:1px solid var(--ink); border-radius:50%;
+  transform:translate3d(-100px,-100px,0);
+  transition:width .35s var(--ease),height .35s var(--ease),margin .35s var(--ease),border-color .35s var(--ease),opacity .35s var(--ease);
+  opacity:.5;
+}
+.cursor-ring.big{ width:64px; height:64px; margin:-32px 0 0 -32px; border-color:var(--accent); opacity:.9; }
+@media (hover:none), (pointer:coarse){ .cursor,.cursor-ring{ display:none; } }
+
+/* ---------- layout shells ---------- */
+.wrap{ position:relative; z-index:1; max-width:74rem; margin:0 auto; padding:0 2rem; }
+@media (max-width:640px){ .wrap{ padding:0 1.25rem; } }
+
+header.top{
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:1.1rem 2rem;
+  backdrop-filter:blur(14px) saturate(1.2);
+  background:color-mix(in srgb, var(--paper) 72%, transparent);
+  border-bottom:1px solid transparent;
+  transition:border-color .4s var(--ease), background-color .4s var(--ease);
+}
+header.top.scrolled{ border-bottom-color:var(--line); }
+.brand{ display:flex; align-items:center; gap:.6rem; font-size:1.05rem; letter-spacing:.02em; text-decoration:none; }
+.brand svg{ display:block; }
+.brand b{ font-weight:600; }
+.brand span{ color:var(--muted); font-size:.78rem; font-family:ui-sans-serif,system-ui,sans-serif; }
+
+nav.top-actions{ display:flex; align-items:center; gap:1.4rem; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.86rem; }
+nav.top-actions a{ text-decoration:none; color:var(--ink-soft); position:relative; }
+nav.top-actions a.launch{
+  color:var(--accent-ink); background:var(--ink); padding:.5rem 1rem; border-radius:999px;
+  transition:transform .4s var(--ease), background-color .3s;
+}
+nav.top-actions a.launch:hover{ transform:translateY(-2px); }
+.theme-btn{
+  width:2.1rem; height:2.1rem; border-radius:50%; border:1px solid var(--line);
+  background:transparent; color:var(--ink); cursor:none; display:grid; place-items:center;
+  transition:border-color .3s, transform .4s var(--ease);
+}
+.theme-btn:hover{ transform:rotate(25deg); border-color:var(--accent); }
+
+/* ---------- hero ---------- */
+.hero{ position:relative; min-height:100svh; display:flex; flex-direction:column; justify-content:center; padding-top:6rem; }
+.hero .eyebrow{
+  font-family:ui-sans-serif,system-ui,sans-serif; font-size:.78rem; letter-spacing:.28em; text-transform:uppercase;
+  color:var(--muted); display:flex; align-items:center; gap:.6rem; opacity:0; transform:translateY(10px);
+}
+.hero .eyebrow::before{ content:""; width:1.8rem; height:1px; background:var(--accent); }
+.hero h1{
+  margin:1.1rem 0 0; font-weight:600; line-height:.95;
+  font-size:clamp(4.2rem, 13vw, 10rem); letter-spacing:-.01em;
+}
+.hero h1 .char{ display:inline-block; will-change:transform,filter,opacity; }
+.hero .sub{
+  margin-top:1.6rem; max-width:34rem; font-size:1.18rem; line-height:1.75; color:var(--ink-soft);
+  font-family:ui-sans-serif,system-ui,sans-serif; font-weight:400;
+  opacity:0; transform:translateY(14px);
+}
+.hero .tags{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.8rem; opacity:0; transform:translateY(14px); }
+.tag{
+  font-family:ui-sans-serif,system-ui,sans-serif; font-size:.78rem; padding:.4rem .85rem; border-radius:999px;
+  border:1px solid var(--line); color:var(--ink-soft);
+}
+.hero .cta-row{ display:flex; align-items:center; gap:1.4rem; margin-top:2.4rem; opacity:0; transform:translateY(14px); }
+.btn-magnetic{
+  position:relative; display:inline-flex; align-items:center; gap:.6rem;
+  font-family:ui-sans-serif,system-ui,sans-serif; font-weight:600; font-size:.95rem;
+  padding:1rem 1.7rem; border-radius:999px; background:var(--ink); color:var(--accent-ink);
+  text-decoration:none; overflow:hidden; isolation:isolate;
+}
+.btn-magnetic .fill{
+  content:""; position:absolute; inset:0; z-index:-1; background:var(--accent);
+  transform:translateY(102%); transition:transform .5s var(--ease);
+}
+.btn-magnetic:hover .fill{ transform:translateY(0); }
+.link-ghost{ font-family:ui-sans-serif,system-ui,sans-serif; font-size:.92rem; color:var(--ink-soft); text-decoration:none; border-bottom:1px solid var(--line); padding-bottom:.15rem; transition:border-color .3s,color .3s; }
+.link-ghost:hover{ color:var(--ink); border-color:var(--ink); }
+
+.scroll-cue{
+  position:absolute; bottom:2.6rem; left:2rem; display:flex; align-items:center; gap:.7rem;
+  font-family:ui-sans-serif,system-ui,sans-serif; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; color:var(--faint);
+  opacity:0;
+}
+.scroll-cue .line{ width:1px; height:2.6rem; background:linear-gradient(var(--faint), transparent); position:relative; overflow:hidden; }
+.scroll-cue .line::after{ content:""; position:absolute; top:-100%; left:0; width:100%; height:100%; background:var(--accent); animation:cue 2.2s var(--ease) infinite; }
+@keyframes cue{ to{ top:100%; } }
+
+/* floating grid squares (decorative) */
+.float-field{ position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:0; }
+.float-field i{
+  position:absolute; width:.5rem; height:.5rem; border:1px solid var(--line); border-radius:2px;
+  animation:drift linear infinite; opacity:.55;
+}
+@keyframes drift{ from{ transform:translate3d(0,110vh,0) rotate(0deg);} to{ transform:translate3d(var(--dx,0),-10vh,0) rotate(180deg);} }
+
+/* ---------- section shared ---------- */
+section{ position:relative; padding:9rem 0; }
+.section-head{ max-width:38rem; margin-bottom:4.5rem; }
+.section-head .kicker{
+  font-family:ui-sans-serif,system-ui,sans-serif; font-size:.78rem; letter-spacing:.24em; text-transform:uppercase; color:var(--accent);
+}
+.section-head h2{ font-size:clamp(2.1rem,4.4vw,3.2rem); font-weight:600; line-height:1.15; margin:.7rem 0 0; }
+.section-head p{ font-family:ui-sans-serif,system-ui,sans-serif; color:var(--muted); font-size:1.02rem; line-height:1.7; margin-top:1rem; }
+.reveal{ opacity:0; transform:translateY(28px); transition:opacity .9s var(--ease-soft), transform .9s var(--ease-soft); }
+.reveal.in{ opacity:1; transform:translateY(0); }
+.reveal-stagger > *{ opacity:0; transform:translateY(24px); transition:opacity .7s var(--ease-soft), transform .7s var(--ease-soft); }
+.reveal-stagger.in > *{ opacity:1; transform:translateY(0); }
+.reveal-stagger.in > *:nth-child(1){ transition-delay:.02s; }
+.reveal-stagger.in > *:nth-child(2){ transition-delay:.09s; }
+.reveal-stagger.in > *:nth-child(3){ transition-delay:.16s; }
+.reveal-stagger.in > *:nth-child(4){ transition-delay:.23s; }
+.reveal-stagger.in > *:nth-child(5){ transition-delay:.3s; }
+.reveal-stagger.in > *:nth-child(6){ transition-delay:.37s; }
+.reveal-stagger.in > *:nth-child(7){ transition-delay:.44s; }
+
+/* ---------- workflow ---------- */
+.flow{ position:relative; }
+.flow-line{ position:absolute; left:1.15rem; top:.4rem; bottom:.4rem; width:2px; background:var(--line); }
+.flow-line span{ position:absolute; left:0; top:0; width:100%; height:var(--p,0%); background:var(--accent); transition:height .1s linear; }
+.flow-steps{ display:flex; flex-direction:column; gap:3.6rem; padding-left:3.2rem; }
+.flow-step{ position:relative; font-family:ui-sans-serif,system-ui,sans-serif; }
+.flow-step .num{
+  position:absolute; left:-3.2rem; top:0; width:2.3rem; height:2.3rem; border-radius:50%; border:1px solid var(--line);
+  display:grid; place-items:center; font-size:.85rem; color:var(--muted); background:var(--paper);
+  transition:border-color .4s, color .4s, background-color .4s, transform .4s var(--ease);
+}
+.flow-step.active .num{ border-color:var(--accent); color:var(--accent-ink); background:var(--accent); transform:scale(1.12); }
+.flow-step h3{ font-family:inherit; font-size:1.5rem; font-weight:600; margin:0 0 .5rem; color:var(--ink); font-family:"PingFang SC",serif; }
+.flow-step p{ color:var(--muted); max-width:34rem; line-height:1.7; margin:0; }
+
+/* ---------- bento capability grid ---------- */
+.bento{ display:grid; grid-template-columns:repeat(6,1fr); gap:1rem; }
+.bento .card{
+  grid-column:span 3; border:1px solid var(--line); border-radius:1.1rem; padding:1.9rem;
+  background:color-mix(in srgb, var(--paper-2) 60%, transparent);
+  transition:transform .5s var(--ease), border-color .4s, background-color .4s;
+}
+.bento .card:hover{ transform:translateY(-6px); border-color:var(--accent); }
+.bento .card.wide{ grid-column:span 6; }
+.bento .card.big{ grid-column:span 2; text-align:left; }
+@media (max-width:860px){ .bento .card, .bento .card.wide, .bento .card.big{ grid-column:span 6; } }
+.bento .stat{ font-size:2.6rem; font-weight:700; letter-spacing:-.02em; font-family:ui-sans-serif,system-ui,sans-serif; }
+.bento .stat sup{ font-size:1.1rem; color:var(--accent); }
+.bento h4{ margin:.9rem 0 .4rem; font-size:1.05rem; font-weight:600; }
+.bento p{ margin:0; color:var(--muted); font-family:ui-sans-serif,system-ui,sans-serif; font-size:.92rem; line-height:1.65; }
+.bento .tagset{ display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1rem; }
+
+/* ---------- interactive cloze demo ---------- */
+.demo{
+  border:1px solid var(--line); border-radius:1.4rem; padding:3rem 2.6rem; text-align:center;
+  background:color-mix(in srgb, var(--paper-2) 55%, transparent); box-shadow:var(--shadow);
+}
+.demo .hint{ font-family:ui-sans-serif,system-ui,sans-serif; font-size:.82rem; color:var(--muted); margin-bottom:1.8rem; letter-spacing:.02em; }
+.demo-line{ display:flex; flex-wrap:wrap; justify-content:center; gap:.35rem .28rem; font-size:clamp(1.6rem,4.4vw,2.6rem); user-select:none; }
+.demo-line .ch{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:1.5em; height:1.5em; border-radius:.4rem; cursor:none; position:relative;
+  transition:background-color .35s var(--ease), transform .25s var(--ease);
+}
+.demo-line .ch:hover{ background:color-mix(in srgb, var(--accent) 14%, transparent); }
+.demo-line .ch.blank{ color:transparent; }
+.demo-line .ch.blank::after{
+  content:""; position:absolute; left:12%; right:12%; bottom:22%; height:2px; background:var(--accent-2);
+  transform:scaleX(0); transform-origin:left; animation:underline .35s var(--ease) forwards;
+}
+.demo-line .space{ width:.6em; }
+@keyframes underline{ to{ transform:scaleX(1); } }
+.demo .meta{ margin-top:1.8rem; font-family:ui-sans-serif,system-ui,sans-serif; font-size:.82rem; color:var(--faint); }
+.demo .meta b{ color:var(--accent); font-weight:600; }
+
+/* ---------- manifesto ---------- */
+.manifesto{ display:grid; grid-template-columns:1fr 1fr; gap:3rem 4rem; }
+@media (max-width:860px){ .manifesto{ grid-template-columns:1fr; } }
+.manifesto .col h3{ font-family:ui-sans-serif,system-ui,sans-serif; font-size:.85rem; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin-bottom:1.4rem; }
+.manifesto ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1.1rem; }
+.manifesto li{
+  font-size:1.15rem; line-height:1.6; padding-bottom:1.1rem; border-bottom:1px solid var(--line);
+  display:flex; gap:.8rem;
+}
+.manifesto li::before{ content:"—"; color:var(--faint); flex:none; }
+.manifesto .col.no li::before{ content:"×"; color:var(--faint); }
+.manifesto .col.no li{ color:var(--muted); }
+
+/* ---------- CTA footer ---------- */
+.cta{
+  text-align:center; padding:8rem 0 10rem;
+}
+.cta h2{ font-size:clamp(2.4rem,6vw,4rem); font-weight:600; line-height:1.1; margin:0 auto 1.2rem; max-width:26ch; }
+.cta p{ font-family:ui-sans-serif,system-ui,sans-serif; color:var(--muted); max-width:32rem; margin:0 auto 2.6rem; line-height:1.7; }
+.cta .cta-row{ display:flex; justify-content:center; gap:1.4rem; flex-wrap:wrap; }
+
+footer{
+  border-top:1px solid var(--line); padding:2.4rem 0 3rem;
+  font-family:ui-sans-serif,system-ui,sans-serif; font-size:.82rem; color:var(--faint);
+  display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+}
+footer a{
+  color:var(--ink-soft); text-decoration:none; border-bottom:1px solid var(--line);
+  transition:color .25s var(--ease),border-color .25s var(--ease);
+}
+footer a:hover{ color:var(--accent); border-color:var(--accent); }
+.footer-links{ display:flex; flex-wrap:wrap; gap:.9rem 1.25rem; }
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+  .float-field{ display:none; }
+}
+
+/* page-load curtain */
+.curtain{
+  position:fixed; inset:0; z-index:10000; background:var(--paper);
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .9s var(--ease), opacity .7s var(--ease);
+}
+.curtain span{ font-size:1.4rem; letter-spacing:.4em; color:var(--muted); font-family:ui-sans-serif,system-ui,sans-serif; opacity:.7; }
+.curtain.hide{ transform:translateY(-100%); opacity:0; pointer-events:none; }
+</style>
+</head>
+<body>
+
+<div class="curtain" id="curtain"><span>留 白</span></div>
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+<div class="backdrop" id="backdrop"></div>
+<div class="float-field" id="floatField"></div>
+
+<header class="top" id="topHeader">
+  <a href="#top" class="brand">
+    <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+      <rect x="1" y="1" width="24" height="24" rx="5" stroke="currentColor" stroke-width="1.4"/>
+      <rect x="9.5" y="9.5" width="7" height="7" rx="1.4" fill="currentColor"/>
+    </svg>
+    <b>留白</b><span>课堂默写工作台</span>
+  </a>
+  <nav class="top-actions">
+    <a href="#flow">流程</a>
+    <a href="#capabilities">能力</a>
+    <a href="#demo">试一试</a>
+    <button class="theme-btn" id="themeBtn" aria-label="切换深浅色主题" title="切换深浅色主题">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    </button>
+    <a class="launch" href="https://zhuolin0928.github.io/liubai-classroom-cloze/workbench/">打开工作台</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow" data-hero>教师端 · 本地优先 · 无账号</p>
+      <h1 id="heroTitle" data-hero aria-label="留白"></h1>
+      <p class="sub" data-hero>从古诗文或自定义课文，快速制作可编辑、可导出的挖空默写材料。选文、挖空、排版、导出，一条安静的工作流。</p>
+      <div class="tags" data-hero>
+        <span class="tag">148 篇内容库</span>
+        <span class="tag">1,996 个词类锚点</span>
+        <span class="tag">7 种挖空策略</span>
+        <span class="tag">本地 Word 导出</span>
+        <span class="tag">无水印</span>
+      </div>
+      <div class="cta-row" data-hero>
+        <a class="btn-magnetic" data-magnetic href="https://zhuolin0928.github.io/liubai-classroom-cloze/workbench/"><span class="fill"></span><span>打开工作台 →</span></a>
+        <a class="link-ghost" href="#flow">看看它怎么工作</a>
+        <a class="link-ghost" href="https://github.com/ZHUOLIN0928/liubai-classroom-cloze/releases/download/v0.1.0/liubai-classroom-cloze-offline.zip">下载离线版</a>
+      </div>
+    </div>
+    <div class="scroll-cue" data-hero><span class="line"></span>SCROLL</div>
+  </section>
+
+  <section id="flow">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="kicker">Workflow</p>
+        <h2>一条不被打断的工作流</h2>
+        <p>四个互斥的一级工作面，桌面端优先。当前工作面之外的内容不会占据布局，也不会分散注意力。</p>
+      </div>
+      <div class="flow">
+        <div class="flow-line"><span id="flowProgress"></span></div>
+        <div class="flow-steps" id="flowSteps">
+          <div class="flow-step" data-step><span class="num">01</span><h3>内容库</h3><p>搜索篇名、作者、朝代，按学段筛选。选定篇目后才进入编辑，不把所有控件堆在首屏。</p></div>
+          <div class="flow-step" data-step><span class="num">02</span><h3>挖空编辑</h3><p>按格子、词性、句子或比例生成挖空；单击切换、按住拖动连续挖空，支持鼠标与触摸。</p></div>
+          <div class="flow-step" data-step><span class="num">03</span><h3>版式设置</h3><p>纸张比例、空格样式、字体、字号、行距、页边距、背景色，所见即所得，实时估算分页。</p></div>
+          <div class="flow-step" data-step><span class="num">04</span><h3>导出预览</h3><p>分页缩略图、全局放大预览；一键导出 PNG 或可继续编辑的 Word 文档，无水印无品牌页眉。</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="capabilities">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="kicker">Capabilities</p>
+        <h2>安静地把该做的事做完</h2>
+        <p>不是营销页面式的功能堆叠，是教师实际要用到的每一步。</p>
+      </div>
+      <div class="bento reveal-stagger">
+        <div class="card big"><div class="stat" data-count="148">0</div><h4>已审核课文</h4><p>覆盖初中、高中与自建篇目，按学段与朝代筛选。</p></div>
+        <div class="card big"><div class="stat"><span data-count="1996">0</span></div><h4>词类锚点</h4><p>实词 / 虚词精确位置标注，0 个无效锚点。</p></div>
+        <div class="card big"><div class="stat"><span data-count="7">0</span></div><h4>挖空策略</h4><p>格子、词性、句子、首尾保留、随机比例……一次配置，随时切换。</p></div>
+        <div class="card wide">
+          <h4>逐字手工微调</h4>
+          <p>单击切换单字留白状态；按住横向拖动连续挖空或恢复。使用 Pointer Events，鼠标触摸皆可，且有完整撤销历史。</p>
+          <div class="tagset"><span class="tag">Pointer Events</span><span class="tag">setPointerCapture</span><span class="tag">可撤销</span></div>
+        </div>
+        <div class="card"><h4>版式即所得</h4><p>A4 / 标准 / 宽版 / 自定义比例；字体可临时导入，背景色 PNG 与 Word 共用。</p></div>
+        <div class="card"><h4>本地 Word 导出</h4><p>基于 vendored docx 引擎生成可继续编辑的 .docx，保留标题、正文、挖空占位与版式。</p></div>
+        <div class="card wide">
+          <h4>数据只留在你的设备</h4>
+          <p>默认本地运行，无账号、无联网依赖；不读取主产品学习记录，不接入云端内容库或远程遥测。刷新页面后自动恢复本地库、当前篇目与所有偏好设置。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="demo">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="kicker">Try it</p>
+        <h2>点一下，拖一下</h2>
+        <p>这是核心交互的最小重现：单击切换单字留白，按住并拖动可连续挖空或恢复。</p>
+      </div>
+      <div class="demo reveal">
+        <p class="hint">点击文字，或按住鼠标横向拖动 ↓</p>
+        <div class="demo-line" id="demoLine"></div>
+        <p class="meta">已挖空 <b id="demoCount">0</b> / <span id="demoTotal">0</span> 字 · <span id="demoReset" style="text-decoration:underline;cursor:none;">重置</span></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="manifesto">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="kicker">Principles</p>
+        <h2>做什么，不做什么</h2>
+      </div>
+      <div class="manifesto">
+        <div class="col yes reveal-stagger">
+          <h3>做</h3>
+          <ul>
+            <li>安静、克制、桌面端优先的工作台</li>
+            <li>灰绿纸面、深墨蓝正文、蓝灰强调色</li>
+            <li>键盘可达、focus-visible、触摸目标清晰</li>
+            <li>浅色 / 深色 / 减少动画 / 高对比全部适配</li>
+          </ul>
+        </div>
+        <div class="col no reveal-stagger">
+          <h3>不做</h3>
+          <ul>
+            <li>营销首页式的表单堆叠</li>
+            <li>注册登录、账号权益、支付订阅</li>
+            <li>在线协作、远程同步、语音识别</li>
+            <li>导出文件里的水印、比例说明或品牌页眉</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <div class="wrap reveal">
+      <h2>选一篇课文，安静地开始</h2>
+      <p>不用注册，不用等待。打开即用，内容只留在这台设备上。</p>
+      <div class="cta-row">
+        <a class="btn-magnetic" data-magnetic href="https://zhuolin0928.github.io/liubai-classroom-cloze/workbench/"><span class="fill"></span><span>打开留白工作台 →</span></a>
+        <a class="link-ghost" href="https://github.com/ZHUOLIN0928/liubai-classroom-cloze/releases/download/v0.1.0/liubai-classroom-cloze-offline.zip">下载免安装离线版</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>留白 · 课堂默写工作台 · 本地优先原型</span>
+  <span class="footer-links">
+    <a href="https://zhuolin0928.github.io/">ZHUOLIN 个人主页</a>
+    <a href="https://zhuolin0928.github.io/lnk-lumen/">Lnk Lumen 古诗文背诵</a>
+  </span>
+  <span>无账号 · 无水印 · 无联网依赖</span>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var isCoarse = window.matchMedia("(hover:none), (pointer:coarse)").matches;
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement;
+  var themeBtn = document.getElementById("themeBtn");
+  var saved = localStorage.getItem("liubai-theme");
+  if(saved){ root.setAttribute("data-theme", saved); }
+  themeBtn.addEventListener("click", function(){
+    var current = root.getAttribute("data-theme") ||
+      (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("liubai-theme", next);
+  });
+
+  /* ---------- curtain reveal ---------- */
+  window.addEventListener("load", function(){
+    setTimeout(function(){
+      document.getElementById("curtain").classList.add("hide");
+      document.querySelectorAll("[data-hero]").forEach(function(el, i){
+        setTimeout(function(){
+          el.style.transition = "opacity .9s cubic-bezier(.16,1,.3,1), transform .9s cubic-bezier(.16,1,.3,1)";
+          el.style.opacity = "1";
+          el.style.transform = "translateY(0)";
+        }, 120 + i * 90);
+      });
+    }, reduceMotion ? 0 : 260);
+  });
+
+  /* ---------- hero scramble title ---------- */
+  var heroTitle = document.getElementById("heroTitle");
+  var finalChars = ["留","白"];
+  var glyphs = "留白空格默写课堂织锦一笔安静挖漢字纸墨";
+  heroTitle.setAttribute("aria-label","留白");
+  var spans = finalChars.map(function(){
+    var s = document.createElement("span");
+    s.className = "char";
+    heroTitle.appendChild(s);
+    return s;
+  });
+  function scramble(){
+    var frame = 0, totalFrames = reduceMotion ? 1 : 26;
+    var timer = setInterval(function(){
+      frame++;
+      spans.forEach(function(s, i){
+        if(frame >= totalFrames - i * 5){
+          s.textContent = finalChars[i];
+        } else {
+          s.textContent = glyphs[Math.floor(Math.random()*glyphs.length)];
+        }
+      });
+      if(frame >= totalFrames + 10){ clearInterval(timer); }
+    }, 40);
+  }
+  scramble();
+
+  /* ---------- custom cursor ---------- */
+  if(!isCoarse){
+    var cursor = document.getElementById("cursor");
+    var ring = document.getElementById("cursorRing");
+    var rx = 0, ry = 0, tx = 0, ty = 0;
+    window.addEventListener("pointermove", function(e){
+      tx = e.clientX; ty = e.clientY;
+      cursor.style.transform = "translate3d("+tx+"px,"+ty+"px,0)";
+      document.getElementById("backdrop").style.setProperty("--gx", (e.clientX/window.innerWidth*100)+"%");
+      document.getElementById("backdrop").style.setProperty("--gy", (e.clientY/window.innerHeight*100)+"%");
+    });
+    (function raf(){
+      rx += (tx-rx)*.16; ry += (ty-ry)*.16;
+      ring.style.transform = "translate3d("+rx+"px,"+ry+"px,0)";
+      requestAnimationFrame(raf);
+    })();
+    document.querySelectorAll("a,button,.ch,[data-magnetic]").forEach(function(el){
+      el.addEventListener("mouseenter", function(){ ring.classList.add("big"); });
+      el.addEventListener("mouseleave", function(){ ring.classList.remove("big"); });
+    });
+  }
+
+  /* ---------- magnetic buttons ---------- */
+  if(!isCoarse && !reduceMotion){
+    document.querySelectorAll("[data-magnetic]").forEach(function(btn){
+      btn.addEventListener("mousemove", function(e){
+        var r = btn.getBoundingClientRect();
+        var mx = e.clientX - r.left - r.width/2;
+        var my = e.clientY - r.top - r.height/2;
+        btn.style.transform = "translate("+mx*.28+"px,"+my*.5+"px)";
+      });
+      btn.addEventListener("mouseleave", function(){
+        btn.style.transition = "transform .5s cubic-bezier(.16,1,.3,1)";
+        btn.style.transform = "translate(0,0)";
+        setTimeout(function(){ btn.style.transition = ""; }, 500);
+      });
+    });
+  }
+
+  /* ---------- header scroll state ---------- */
+  var header = document.getElementById("topHeader");
+  window.addEventListener("scroll", function(){
+    header.classList.toggle("scrolled", window.scrollY > 20);
+  }, { passive:true });
+
+  /* ---------- reveal on scroll ---------- */
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(entry.isIntersecting){ entry.target.classList.add("in"); }
+    });
+  }, { threshold:.2 });
+  document.querySelectorAll(".reveal,.reveal-stagger").forEach(function(el){ io.observe(el); });
+
+  /* ---------- counters ---------- */
+  var counted = new WeakSet();
+  var cio = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(entry.isIntersecting && !counted.has(entry.target)){
+        counted.add(entry.target);
+        var target = parseInt(entry.target.getAttribute("data-count"), 10);
+        var start = performance.now();
+        var dur = 1400;
+        function step(now){
+          var p = Math.min(1, (now-start)/dur);
+          var eased = 1 - Math.pow(1-p, 3);
+          entry.target.textContent = Math.round(target*eased).toLocaleString();
+          if(p < 1){ requestAnimationFrame(step); }
+        }
+        requestAnimationFrame(step);
+      }
+    });
+  }, { threshold:.6 });
+  document.querySelectorAll("[data-count]").forEach(function(el){ cio.observe(el); });
+
+  /* ---------- workflow scroll progress ---------- */
+  var flowSection = document.getElementById("flow");
+  var flowProgress = document.getElementById("flowProgress");
+  var steps = document.querySelectorAll("[data-step]");
+  window.addEventListener("scroll", function(){
+    var r = flowSection.getBoundingClientRect();
+    var vh = window.innerHeight;
+    var p = (vh*.6 - r.top) / (r.height - vh*.2);
+    p = Math.max(0, Math.min(1, p));
+    flowProgress.style.setProperty("--p", (p*100)+"%");
+    flowProgress.style.height = (p*100)+"%";
+    var activeIndex = Math.floor(p * steps.length);
+    steps.forEach(function(s, i){ s.classList.toggle("active", i <= activeIndex && p > 0.02); });
+  }, { passive:true });
+
+  /* ---------- floating grid squares ---------- */
+  var field = document.getElementById("floatField");
+  if(!reduceMotion){
+    var n = isCoarse ? 10 : 22;
+    for(var i=0;i<n;i++){
+      var d = document.createElement("i");
+      d.style.left = (Math.random()*100)+"%";
+      d.style.setProperty("--dx", (Math.random()*80-40)+"px");
+      d.style.animationDuration = (14 + Math.random()*16)+"s";
+      d.style.animationDelay = (-Math.random()*20)+"s";
+      d.style.opacity = (0.15 + Math.random()*0.4).toFixed(2);
+      field.appendChild(d);
+    }
+  }
+
+  /* ---------- interactive cloze demo ---------- */
+  var poemText = "床前明月光，疑是地上霜。举头望明月，低头思故乡。";
+  var demoLine = document.getElementById("demoLine");
+  var demoCount = document.getElementById("demoCount");
+  var demoTotal = document.getElementById("demoTotal");
+  var chars = [];
+  Array.from(poemText).forEach(function(ch){
+    var span = document.createElement("span");
+    if(/[，。、；：]/.test(ch)){
+      span.className = "ch"; span.textContent = ch; span.style.cursor = "default";
+      span.dataset.punct = "1";
+    } else {
+      span.className = "ch"; span.textContent = ch;
+    }
+    demoLine.appendChild(span);
+    chars.push(span);
+  });
+  var blankable = chars.filter(function(s){ return !s.dataset.punct; });
+  demoTotal.textContent = blankable.length;
+  function updateCount(){
+    var n = blankable.filter(function(s){ return s.classList.contains("blank"); }).length;
+    demoCount.textContent = n;
+  }
+  function toggleChar(span, force){
+    if(span.dataset.punct) return;
+    var isBlank = span.classList.contains("blank");
+    var next = force === undefined ? !isBlank : force;
+    span.classList.toggle("blank", next);
+    updateCount();
+  }
+  var dragging = false, dragValue = true;
+  demoLine.addEventListener("pointerdown", function(e){
+    var t = e.target.closest(".ch");
+    if(!t || t.dataset.punct) return;
+    dragging = true;
+    dragValue = !t.classList.contains("blank");
+    toggleChar(t, dragValue);
+    demoLine.setPointerCapture(e.pointerId);
+  });
+  demoLine.addEventListener("pointermove", function(e){
+    if(!dragging) return;
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    var t = el && el.closest(".ch");
+    if(t) toggleChar(t, dragValue);
+  });
+  ["pointerup","pointercancel","pointerleave"].forEach(function(ev){
+    demoLine.addEventListener(ev, function(){ dragging = false; });
+  });
+  document.getElementById("demoReset").addEventListener("click", function(){
+    blankable.forEach(function(s){ s.classList.remove("blank"); });
+    updateCount();
+  });
+})();
+</script>
+</body>
+</html>

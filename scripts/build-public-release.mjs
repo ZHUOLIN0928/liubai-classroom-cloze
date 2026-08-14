@@ -36,7 +36,7 @@ async function readLibrary(path) {
 
 async function copyPublicSource(destination) {
     const ignored = new Set([
-        '.git', '.runtime', 'content-library.json', 'content-library-data.js', 'node_modules'
+        '.git', '.runtime', 'content-library.json', 'content-library-data.js', 'landing', 'node_modules'
     ]);
     await mkdir(destination, { recursive: true });
     for (const entry of await readdir(sourceDirectory, { withFileTypes: true })) {
@@ -45,6 +45,10 @@ async function copyPublicSource(destination) {
             recursive: true
         });
     }
+}
+
+async function copyLanding(destination) {
+    await cp(resolve(sourceDirectory, 'landing', 'index.html'), resolve(destination, 'index.html'));
 }
 
 async function buildLibraryModule(payload, destination) {
@@ -84,16 +88,24 @@ if (
 }
 
 const payload = await readLibrary(contentPath);
+const workbenchDirectory = resolve(outputDirectory, 'workbench');
+const offlineDirectory = resolve(dirname(offlineZip), 'public-site');
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(dirname(offlineZip), { recursive: true });
 await rm(offlineZip, { force: true });
-await copyPublicSource(outputDirectory);
-await buildLibraryModule(payload, outputDirectory);
-createOfflineZip(outputDirectory, offlineZip);
+await rm(offlineDirectory, { recursive: true, force: true });
+await mkdir(outputDirectory, { recursive: true });
+await copyLanding(outputDirectory);
+await copyPublicSource(workbenchDirectory);
+await buildLibraryModule(payload, workbenchDirectory);
+await copyPublicSource(offlineDirectory);
+await buildLibraryModule(payload, offlineDirectory);
+createOfflineZip(offlineDirectory, offlineZip);
 
 const zipSize = (await stat(offlineZip)).size;
 process.stdout.write(`${JSON.stringify({
     outputDirectory,
+    workbenchDirectory,
     offlineZip,
     workCount: payload.works.length,
     zipSize
