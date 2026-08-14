@@ -1,0 +1,49 @@
+name: Deploy Liubai Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: liubai-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out public source
+        uses: actions/checkout@v4
+
+      - name: Check out private content package
+        uses: actions/checkout@v4
+        with:
+          repository: ZHUOLIN0928/liubai-classroom-content
+          ssh-key: ${{ secrets.LIUBAI_CONTENT_DEPLOY_KEY }}
+          path: .private-content
+          persist-credentials: false
+
+      - name: Build published site
+        run: >-
+          node scripts/build-public-release.mjs
+          --content .private-content/content-library.json
+          --out "$RUNNER_TEMP/liubai-site"
+          --offline-zip "$RUNNER_TEMP/liubai-release/liubai-classroom-cloze-offline.zip"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/liubai-site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
