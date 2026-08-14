@@ -85,6 +85,7 @@ if (
 
 const payload = await readLibrary(contentPath);
 await rm(outputDirectory, { recursive: true, force: true });
+await mkdir(dirname(offlineZip), { recursive: true });
 await rm(offlineZip, { force: true });
 await copyPublicSource(outputDirectory);
 await buildLibraryModule(payload, outputDirectory);
